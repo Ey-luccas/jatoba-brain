@@ -1,0 +1,38 @@
+[
+  {
+    "key": "maestro",
+    "name": "Maestro",
+    "role": "orchestrator",
+    "description": "Divide objetivos em tarefas, escolhe agentes, recupera contexto e consolida resultados."
+  },
+  {
+    "key": "backend",
+    "name": "Construtor Backend",
+    "role": "backend",
+    "description": "Implementa APIs, banco de dados, integrações e serviços."
+  },
+  {
+    "key": "frontend",
+    "name": "Construtor Interface",
+    "role": "frontend_mobile",
+    "description": "Implementa frontend, Flutter/mobile e interfaces de usuário."
+  },
+  {
+    "key": "testes",
+    "name": "Sentinela de Testes",
+    "role": "qa",
+    "description": "Cria e executa testes, valida regressões e registra falhas."
+  },
+  {
+    "key": "revisor",
+    "name": "Revisor",
+    "role": "reviewer",
+    "description": "Revisa arquitetura, segurança, qualidade e impacto das mudanças."
+  },
+  {
+    "key": "escriba",
+    "name": "Escriba",
+    "role": "documentation_memory",
+    "description": "Consolida decisões, checkpoints, handoffs e documentação derivada da memória."
+  }
+]

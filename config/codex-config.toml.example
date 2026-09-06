@@ -1,0 +1,10 @@
+# Acrescente ao ~/.codex/config.toml
+# Exporte antes: export JATOBA_API_KEY="..."
+
+[mcp_servers.jatoba]
+url = "https://SEU_IP/mcp"
+bearer_token_env_var = "JATOBA_API_KEY"
+enabled = true
+required = false
+startup_timeout_sec = 20
+tool_timeout_sec = 60

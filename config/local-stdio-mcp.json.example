@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "jatoba-local": {
+      "command": "node",
+      "args": ["/CAMINHO/jatoba-brain/dist/stdio.js"],
+      "env": {
+        "DATABASE_URL": "postgresql://jatoba:CHANGE_ME@127.0.0.1:54329/jatoba",
+        "BRAIN_API_KEY": "local-stdio-does-not-use-http-auth"
+      }
+    }
+  }
+}

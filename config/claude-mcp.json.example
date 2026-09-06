@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "jatoba": {
+      "type": "http",
+      "url": "${JATOBA_URL:-https://SEU_IP/mcp}",
+      "headers": {
+        "Authorization": "Bearer ${JATOBA_API_KEY}"
+      }
+    }
+  }
+}

@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg18
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-jatoba}
+      POSTGRES_USER: ${POSTGRES_USER:-jatoba}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - jatoba_postgres:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jatoba} -d ${POSTGRES_DB:-jatoba}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks:
+      - jatoba_internal
+
+  brain:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "${PORT:-3338}:3338"
+    volumes:
+      - ./exports:/app/exports
+      - ./workspace:/workspace:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      - jatoba_internal
+      - jatoba_public
+
+volumes:
+  jatoba_postgres:
+
+networks:
+  jatoba_internal:
+    internal: true
+  jatoba_public:
