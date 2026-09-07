@@ -19,6 +19,8 @@ export const config = {
   defaultWorkspace: process.env.DEFAULT_WORKSPACE ?? 'principal',
   exportDir: process.env.EXPORT_DIR ?? './exports',
   workspaceDir: process.env.WORKSPACE_DIR ?? './workspace',
+  graphDir: process.env.GRAPH_DIR ?? './graphs',
+  graphifyBin: process.env.GRAPHIFY_BIN ?? 'graphify',
   embeddings: {
     enabled: (process.env.EMBEDDINGS_ENABLED ?? 'false').toLowerCase() === 'true',
     apiUrl: process.env.EMBEDDINGS_API_URL ?? '',

@@ -29,3 +29,13 @@ export function authGuard(req: Request, res: Response, next: NextFunction): void
 
   res.status(401).json({ error: 'unauthorized' });
 }
+
+export function dashboardGuard(req: Request,res: Response,next: NextFunction): void {
+  const header=req.header('authorization')??'';
+  const decoded=header.startsWith('Basic ')?Buffer.from(header.slice(6),'base64').toString('utf8'):'';
+  const valid=decoded.startsWith('admin:') && safeEqual(decoded.slice(6),config.apiKey);
+  if(valid) {next();return;}
+  if(header.startsWith('Bearer ') || req.header('x-jatoba-key')) {authGuard(req,res,next);return;}
+  res.setHeader('WWW-Authenticate','Basic realm="Jatoba", charset="UTF-8"');
+  res.status(401).json({error:'unauthorized'});
+}

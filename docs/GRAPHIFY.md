@@ -1,58 +1,40 @@
-# Graphify + Jatobá Brain
+# Graphify no Jatobá Brain
 
-Os dois componentes não competem.
-
-```text
-Jatobá → o que aconteceu e por quê?
-Graphify → como o código está conectado?
-Git → qual é o código real agora?
-```
-
-## Instalar
-
-```bash
-uv tool install graphifyy
-graphify install
-```
-
-## Criar o grafo
-
-O build do Graphify é acionado dentro de um assistente compatível:
+Graphify fornece a memória estrutural: relações do código dentro de um repositório. PostgreSQL e pgvector continuam responsáveis pela memória histórica e semântica; o Work Graph registra a história operacional.
 
 ```text
-/graphify .
+Jatobá / PostgreSQL -> o que aconteceu e por quê?
+Graphify            -> como o código está conectado?
+Git                 -> qual é o estado real agora?
 ```
 
-Saída típica:
+## Versão validada
 
-```text
-graphify-out/
-├── graph.json
-├── graph.html
-└── GRAPH_REPORT.md
-```
+O ambiente validado usa Graphify CLI `0.9.55`, invocado como um processo local. A indexação usa extração de código e não exige um modelo de linguagem disponível.
 
-## Atualizar
+## Indexação por repositório
 
-```text
-/graphify . --update
-```
+`graph_index` é explícita. Ela valida o caminho do repositório registrado, lê o commit Git atual, executa Graphify e persiste somente metadados em `repository_graphs`: projeto, repositório, caminho do snapshot, commit, estado, contagens, timestamps e código de erro seguro.
 
-## Compartilhar com vários agentes
+Snapshots ficam separados por projeto e repositório no diretório `GRAPH_DIR`. Não são gravados no PostgreSQL nem devem ser versionados no Git.
 
-```bash
-python -m graphify.serve graphify-out/graph.json --transport http --port 8080
-```
+## Estados
 
-Cada projeto/repositório pode ter seu próprio `graphify-out/`. Na primeira versão, o Jatobá não copia o grafo para o PostgreSQL; ele mantém essa responsabilidade separada.
+- `READY`: o grafo corresponde ao commit atual.
+- `STALE`: o commit Git mudou depois da última geração.
+- `INDEXING`: uma indexação está em curso.
+- `ERROR`: Graphify falhou ou não produziu uma saída válida.
 
-## Estratégia multi-projeto
+`graph_status` informa essas condições. Uma falha de Graphify não interrompe `remember`, `recall`, MCP ou a memória temporal; consultas podem usar um snapshot pronto existente quando apropriado.
 
-```text
-graphs/
-├── achei/backend/graph.json
-├── achei/mobile/graph.json
-└── mundo-mae/backend/graph.json
-```
+## Consulta limitada e rebuild
 
-Pode-se iniciar uma instância Graphify por grafo quando vários projetos precisam ser consultados simultaneamente. Uma versão futura do Jatobá pode atuar como roteador desses endpoints.
+`graph_query`, `graph_neighbors` e `graph_impact` retornam somente um subgrafo limitado por profundidade, nós e arestas. A profundidade aceita de 1 a 4. O `graph.json` completo nunca é enviado ao agente.
+
+O Jatobá não reconstrói grafos em toda chamada de `recall` ou `context_retrieve`. Quando o estado for `STALE`, execute `graph_index` conscientemente. O processo usa lock por repositório para evitar indexações concorrentes.
+
+## Limitações atuais
+
+- A retenção de snapshots antigos ainda exige política operacional.
+- Apenas repositórios Git registrados e dentro do workspace configurado podem ser indexados.
+- O grafo descreve estrutura estática; não substitui testes, análise de runtime ou revisão humana.

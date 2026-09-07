@@ -2,6 +2,7 @@ import type { Express, Request, Response } from 'express';
 import { createProject, listProjects, projectContext, addRepository } from './services/project.service.js';
 import { remember, recall } from './services/memory.service.js';
 import { exportDocuments } from './services/export.service.js';
+import { runTool } from './mcp/server.js';
 
 function routeParam(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] ?? '' : value ?? '';
@@ -10,8 +11,7 @@ function routeParam(value: string | string[] | undefined): string {
 function asyncRoute(fn: (req: Request, res: Response) => Promise<unknown>) {
   return (req: Request, res: Response) => {
     void fn(req, res).catch((error) => {
-      console.error(error);
-      res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+      res.status(400).json({ error: 'invalid_request', message: 'Check scope, identifiers and input fields.' });
     });
   };
 }
@@ -20,12 +20,12 @@ export function registerRoutes(app: Express): void {
   app.get('/api/projects', asyncRoute(async (_req, res) => res.json(await listProjects())));
 
   app.post('/api/projects', asyncRoute(async (req, res) => {
-    const project = await createProject(req.body);
+    const project = await runTool('project_create',req.body);
     res.status(201).json(project);
   }));
 
   app.post('/api/projects/:project/repositories', asyncRoute(async (req, res) => {
-    const repository = await addRepository({ project: req.params.project, ...req.body });
+    const repository = await runTool('repository_add',{ ...req.body, project: routeParam(req.params.project) });
     res.status(201).json(repository);
   }));
 
@@ -34,15 +34,19 @@ export function registerRoutes(app: Express): void {
   }));
 
   app.post('/api/memories', asyncRoute(async (req, res) => {
-    res.status(201).json(await remember(req.body));
+    res.status(201).json(await runTool('remember',req.body));
   }));
 
   app.post('/api/recall', asyncRoute(async (req, res) => {
-    res.json(await recall(req.body));
+    res.json(await runTool('recall',req.body));
   }));
 
   app.post('/api/projects/:project/export', asyncRoute(async (req, res) => {
     const exported = await exportDocuments(routeParam(req.params.project));
     res.json({ directory: exported.directory, files: exported.files });
+  }));
+
+  app.post('/api/tools/:tool',asyncRoute(async(req,res)=>{
+    res.json(await runTool(routeParam(req.params.tool),req.body));
   }));
 }

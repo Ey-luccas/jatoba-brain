@@ -1,0 +1,14 @@
+.git
+.env
+.env.*
+node_modules
+dist
+graphs
+workspace
+exports
+backups
+coverage
+*.key
+*.pem
+*.zip
+tests

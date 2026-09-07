@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Jatoba Brain | Memoria do projeto</title>
+  <link rel="stylesheet" href="./style.css">
+  <script src="./app.js" defer></script>
+</head>
+<body>
+  <aside>
+    <a class="brand" href="./">Jatoba<span>BRAIN / WORKSPACE</span></a>
+    <p class="eyebrow">MEMORIA PERSISTENTE</p>
+    <nav id="navigation" aria-label="Secoes"></nav>
+    <p class="sidebar-note">A sessao acaba.<br>O projeto nao esquece.</p>
+  </aside>
+  <main>
+    <header><div><p class="eyebrow">CADERNO DO PROJETO</p><h1 id="title">Visao geral</h1></div><span class="readonly">Somente leitura</span></header>
+    <form id="filters">
+      <label>Projeto<select id="project"><option value="">Selecione um projeto</option></select></label>
+      <label>Repositorio<select id="repository"><option value="">Todos do projeto</option></select></label>
+      <label>Tipo<select id="type"><option value="">Todos os tipos</option><option>GENERAL</option><option>TASK</option><option>DECISION</option><option>ERROR</option><option>SOLUTION</option><option>CHECKPOINT</option><option>ARCHITECTURE</option><option>TODO</option><option>SESSION_SUMMARY</option></select></label>
+      <label>Busca<input id="search" type="search" placeholder="Autenticacao, decisoes, sessoes..."></label>
+      <button type="submit">Consultar</button>
+    </form>
+    <p id="status" role="status" aria-live="polite">Carregando projetos...</p>
+    <section id="content" aria-label="Dados do projeto"></section>
+    <footer>Jatoba Brain / Dados derivados da memoria do projeto.</footer>
+  </main>
+</body>
+</html>

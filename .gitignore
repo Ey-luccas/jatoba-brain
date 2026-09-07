@@ -17,3 +17,5 @@ exports/*
 workspace/*
 !workspace/.gitkeep
 graphify-out/
+graphs/
+.venv/
