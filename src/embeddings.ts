@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { config } from './config.js';
+import { increment } from './services/runtime-metrics.js';
 
 export interface EmbeddingProvider {
   providerName: string;
@@ -32,11 +33,11 @@ export function createEmbeddingProvider(): EmbeddingProvider {
         body: JSON.stringify({ model: config.embeddings.model, input: text }),
         signal: AbortSignal.timeout(config.embeddings.timeoutMs),
       });
-      if (!response.ok) return null;
+      if (!response.ok) { increment('embedding_provider_failures_total'); return null; }
       const payload = (await response.json()) as { data?: Array<{ embedding?: unknown }> };
       const embedding = payload.data?.[0]?.embedding;
-      if (!validEmbedding(embedding)) return null;
-      if (config.embeddings.dimension && embedding.length !== config.embeddings.dimension) return null;
+      if (!validEmbedding(embedding)) { increment('embedding_dimension_errors_total'); return null; }
+      if (config.embeddings.dimension && embedding.length !== config.embeddings.dimension) { increment('embedding_dimension_errors_total'); return null; }
       return embedding;
     },
   };
@@ -50,7 +51,9 @@ export async function createEmbedding(text: string): Promise<number[] | null> {
     const embedding = await createEmbeddingProvider().embed(text);
     if (embedding) cache.set(key, embedding);
     return embedding;
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'TimeoutError') increment('embedding_timeouts_total');
+    else increment('embedding_provider_failures_total');
     return null;
   }
 }

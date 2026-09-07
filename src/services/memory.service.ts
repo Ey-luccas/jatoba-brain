@@ -4,6 +4,7 @@ import { createEmbedding } from '../embeddings.js';
 import { vectorLiteral } from '../utils.js';
 import { resolveProject } from './project.service.js';
 import { budget, resolveScope, type Scope } from './scope.js';
+import { increment } from './runtime-metrics.js';
 
 export const MEMORY_TYPES = ['GENERAL','TASK','DECISION','ERROR','SOLUTION','CHECKPOINT','ARCHITECTURE','DEPENDENCY','TODO','SESSION_SUMMARY'] as const;
 
@@ -15,6 +16,7 @@ export async function remember(input: Scope & {
   const project = await resolveProject(input.project, input.actor);
   await resolveScope({ ...input, project: project.id, scope: 'project' });
   const embedding = await createEmbedding(`${input.title ?? ''}\n${input.content}`);
+  if (!embedding) increment('embedding_fallback_total');
   const result = await db.query(
     `INSERT INTO memories
      (project_id,repository_id,task_id,session_id,agent_key,memory_type,title,content,importance,tags,source,metadata,embedding,
@@ -38,6 +40,8 @@ export async function recall(input: Scope & { query: string; limit?: number; max
   const scope = await resolveScope(input);
   const limit = Math.min(budget(input.limit,8,30), budget(input.max_items,30,30));
   const embedding = await createEmbedding(input.query);
+  if (embedding) increment('vector_retrieval_total');
+  else increment('embedding_fallback_total');
   const result = await db.query(
     `WITH candidates AS (
       SELECT m.id,m.project_id,m.repository_id,m.task_id,m.session_id,m.memory_type,m.title,m.content,

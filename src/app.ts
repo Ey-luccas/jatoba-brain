@@ -7,7 +7,8 @@ import { authGuard,hostGuard,dashboardGuard } from './middleware/auth.js';
 import { corsGuard,rateLimit,securityHeaders } from './middleware/security.js';
 import { buildMcpServer } from './mcp/server.js';
 import { registerRoutes } from './routes.js';
-import { health } from './services/observability.service.js';
+import { health, prometheusText } from './services/observability.service.js';
+import { requestObservability } from './services/runtime-metrics.js';
 import { dashboardData } from './services/dashboard.service.js';
 import { resolveProject } from './services/project.service.js';
 
@@ -15,13 +16,15 @@ export function createApp() {
   const app=express();
   app.disable('x-powered-by');
   if (config.trustProxyHops > 0) app.set('trust proxy', config.trustProxyHops);
+  app.use(requestObservability);
   app.use(express.json({limit:config.http.bodyLimit}));
   app.use(hostGuard);
   app.use(corsGuard);
   app.use(securityHeaders);
   app.get('/live',rateLimit('health'),(_req,res)=>res.json({ok:true,service:'jatoba-brain'}));
-  app.get('/ready',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,service:'jatoba-brain',database:result.database,pgvector:result.pgvector});});
-  app.get('/health',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify,uptime_seconds:result.uptime_seconds});});
+  app.get('/ready',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,status:result.status,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify});});
+  app.get('/health',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,status:result.status,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify,memory:result.memory,db_pool:result.db_pool,node_version:result.node_version,uptime_seconds:result.uptime_seconds});});
+  app.get('/metrics',rateLimit('health'),authGuard,async(_req,res)=>{res.type('text/plain; version=0.0.4').send(await prometheusText());});
   app.use('/api',rateLimit('api'));
   app.use('/dashboard',dashboardGuard,express.static(fileURLToPath(new URL('../dashboard/',import.meta.url))));
   app.get('/api/dashboard/:view',dashboardGuard,async(req,res)=>{

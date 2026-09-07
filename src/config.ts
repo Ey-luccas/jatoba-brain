@@ -10,6 +10,7 @@ export const config = {
   port: Number(process.env.PORT ?? 3338),
   host: process.env.HOST ?? '0.0.0.0',
   nodeEnv: process.env.NODE_ENV ?? 'development',
+  logLevel: (process.env.LOG_LEVEL ?? 'info').toLowerCase(),
   trustProxyHops: Math.max(0, Number(process.env.TRUST_PROXY_HOPS ?? 0)),
   http: {
     bodyLimit: process.env.HTTP_BODY_LIMIT ?? '2mb',
