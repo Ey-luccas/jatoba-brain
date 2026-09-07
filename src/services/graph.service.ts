@@ -11,7 +11,8 @@ const exec = promisify(execFile);
 export type GraphNode = { id: string; label: string; type: string; file?: string };
 export type GraphEdge = { source: string; target: string; relation: string };
 export type GraphInput = Scope & { repositoryId: string; query?: string; entity?: string; depth?: number; max_nodes?: number; max_edges?: number };
-const git = async (root: string,args: string[]) => (await exec('git',['-C',root,...args],{timeout:5000,maxBuffer:2_000_000})).stdout.trim();
+// The repository path is canonicalized and confined by safeRepositoryPath before reaching this helper.
+const git = async (root: string,args: string[]) => (await exec('git',['-c',`safe.directory=${root}`,'-C',root,...args],{timeout:5000,maxBuffer:2_000_000})).stdout.trim();
 
 export async function graphifyAvailable() {
   try { await exec(config.graphifyBin,['--help'],{timeout:3000,maxBuffer:100_000,env:{PATH:process.env.PATH}}); return true; }

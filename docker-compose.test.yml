@@ -22,6 +22,12 @@ services:
       BRAIN_API_KEY: ${JATOBA_TEST_API_KEY:?Test runner supplies an ephemeral key}
       ALLOWED_HOSTS: 127.0.0.1,localhost
       EMBEDDINGS_ENABLED: "false"
+      WORKSPACE_DIR: /workspace
+      GRAPH_DIR: /app/graphs
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_MAX: ${RATE_LIMIT_MAX:-120}
+      RATE_LIMIT_MCP_MAX: ${RATE_LIMIT_MCP_MAX:-60}
+      RATE_LIMIT_HEALTH_MAX: ${RATE_LIMIT_HEALTH_MAX:-300}
     ports:
       - "127.0.0.1::3338"
     depends_on:
