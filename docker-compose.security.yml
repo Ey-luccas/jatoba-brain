@@ -1,0 +1,25 @@
+services:
+  brain:
+    environment:
+      TRUST_PROXY_HOPS: "1"
+      HSTS_ENABLED: "true"
+      RATE_LIMIT_WINDOW_MS: "100"
+      RATE_LIMIT_MAX: "2"
+      RATE_LIMIT_HEALTH_MAX: "5"
+      RATE_LIMIT_MCP_MAX: "2"
+      HTTP_BODY_LIMIT: "1kb"
+      CORS_ORIGINS: ""
+  proxy:
+    image: caddy:2-alpine
+    depends_on:
+      brain:
+        condition: service_started
+    ports:
+      - "127.0.0.1:8443:8443"
+    volumes:
+      - ./Caddyfile.example:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+volumes:
+  caddy_data:
+  caddy_config:

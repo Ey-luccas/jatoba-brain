@@ -1,8 +1,10 @@
 import express from 'express';
 import { fileURLToPath } from 'node:url';
+import { config } from './config.js';
 import { createMcpHandler } from '@modelcontextprotocol/server';
 import { toNodeHandler } from '@modelcontextprotocol/node';
 import { authGuard,hostGuard,dashboardGuard } from './middleware/auth.js';
+import { corsGuard,rateLimit,securityHeaders } from './middleware/security.js';
 import { buildMcpServer } from './mcp/server.js';
 import { registerRoutes } from './routes.js';
 import { health } from './services/observability.service.js';
@@ -12,15 +14,15 @@ import { resolveProject } from './services/project.service.js';
 export function createApp() {
   const app=express();
   app.disable('x-powered-by');
-  app.use(express.json({limit:'2mb'}));
+  if (config.trustProxyHops > 0) app.set('trust proxy', config.trustProxyHops);
+  app.use(express.json({limit:config.http.bodyLimit}));
   app.use(hostGuard);
-  app.use((_req,res,next)=>{
-    res.setHeader('X-Content-Type-Options','nosniff');
-    res.setHeader('Cache-Control','no-store');
-    res.setHeader('Content-Security-Policy',"default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'self'");
-    next();
-  });
-  app.get('/health',async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json(result);});
+  app.use(corsGuard);
+  app.use(securityHeaders);
+  app.get('/live',rateLimit('health'),(_req,res)=>res.json({ok:true,service:'jatoba-brain'}));
+  app.get('/ready',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,service:'jatoba-brain',database:result.database,pgvector:result.pgvector});});
+  app.get('/health',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify,uptime_seconds:result.uptime_seconds});});
+  app.use('/api',rateLimit('api'));
   app.use('/dashboard',dashboardGuard,express.static(fileURLToPath(new URL('../dashboard/',import.meta.url))));
   app.get('/api/dashboard/:view',dashboardGuard,async(req,res)=>{
     try {
@@ -35,9 +37,10 @@ export function createApp() {
   registerRoutes(app);
   const handler=createMcpHandler(buildMcpServer);
   const nodeHandler=toNodeHandler(handler);
-  app.all('/mcp',authGuard,(req,res)=>{void nodeHandler(req,res,req.body);});
+  app.all('/mcp',rateLimit('mcp'),authGuard,(req,res)=>{void nodeHandler(req,res,req.body);});
   app.use((error:unknown,_req:express.Request,res:express.Response,_next:express.NextFunction)=>{
-    res.status(400).json({error:'invalid_request'});
+    const status=typeof error==='object'&&error!==null&&'status' in error&&Number((error as {status?:unknown}).status)===413?413:400;
+    res.status(status).json({error:status===413?'payload_too_large':'invalid_request'});
   });
   return {app,close:()=>handler.close()};
 }

@@ -14,7 +14,7 @@ export function hostGuard(req: Request, res: Response, next: NextFunction): void
     next();
     return;
   }
-  res.status(403).json({ error: 'host_not_allowed', hostname });
+  res.status(403).json({ error: 'host_not_allowed' });
 }
 
 export function authGuard(req: Request, res: Response, next: NextFunction): void {

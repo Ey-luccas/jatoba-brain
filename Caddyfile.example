@@ -1,0 +1,10 @@
+# Local disposable TLS only. Do not treat the internal CA as a production certificate.
+https://localhost:8443 {
+  tls internal
+  reverse_proxy brain:3338
+}
+
+# Future domain example:
+# brain.example.com {
+#   reverse_proxy brain:3338
+# }

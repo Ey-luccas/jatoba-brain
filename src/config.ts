@@ -10,6 +10,22 @@ export const config = {
   port: Number(process.env.PORT ?? 3338),
   host: process.env.HOST ?? '0.0.0.0',
   nodeEnv: process.env.NODE_ENV ?? 'development',
+  trustProxyHops: Math.max(0, Number(process.env.TRUST_PROXY_HOPS ?? 0)),
+  http: {
+    bodyLimit: process.env.HTTP_BODY_LIMIT ?? '2mb',
+    requestTimeoutMs: Number(process.env.HTTP_REQUEST_TIMEOUT_MS ?? 30000),
+    headersTimeoutMs: Number(process.env.HTTP_HEADERS_TIMEOUT_MS ?? 10000),
+    keepAliveTimeoutMs: Number(process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS ?? 5000),
+  },
+  corsOrigins: (process.env.CORS_ORIGINS ?? '').split(',').map((value) => value.trim()).filter(Boolean),
+  hstsEnabled: (process.env.HSTS_ENABLED ?? 'false').toLowerCase() === 'true',
+  rateLimit: {
+    enabled: (process.env.RATE_LIMIT_ENABLED ?? 'true').toLowerCase() === 'true',
+    windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS ?? 60000),
+    max: Number(process.env.RATE_LIMIT_MAX ?? 120),
+    healthMax: Number(process.env.RATE_LIMIT_HEALTH_MAX ?? 300),
+    mcpMax: Number(process.env.RATE_LIMIT_MCP_MAX ?? 60),
+  },
   apiKey: required('BRAIN_API_KEY'),
   allowedHosts: (process.env.ALLOWED_HOSTS ?? '127.0.0.1,localhost')
     .split(',')

@@ -1,5 +1,7 @@
 # HTTPS sem domínio: certificado para o IP
 
+O Jatobá não gera nem versiona certificados nesta etapa. A topologia recomendada é Caddy na borda, terminando TLS e encaminhando para o Brain em uma rede Docker interna. O [Caddyfile.example](../Caddyfile.example) usa `tls internal` somente para teste local e não é um certificado de produção.
+
 Desde 2026, a Let's Encrypt disponibiliza certificados públicos para endereços IP. Eles usam o perfil de curta duração e exigem renovação frequente.
 
 ## Requisitos

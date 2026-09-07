@@ -6,9 +6,11 @@
 Claude / Codex / outro MCP client
               │
               ▼
-       IP_DA_VPS:3338
+       IP_DA_VPS:443
               │
-        Jatobá Brain
+       Caddy / HTTPS
+              │
+       Jatobá Brain
               │
        rede Docker interna
               │
@@ -16,7 +18,7 @@ Claude / Codex / outro MCP client
           + pgvector
 ```
 
-O PostgreSQL não possui `ports:` no Compose e não fica público.
+O PostgreSQL não possui `ports:` no Compose e não fica público. O Brain fica publicado por padrão somente em `127.0.0.1` (`BRAIN_BIND_ADDRESS`) e deve ser alcançado externamente através de um reverse proxy HTTPS.
 
 ## 1. Preparar a VPS
 
@@ -42,6 +44,9 @@ BRAIN_API_KEY=<primeiro segredo>
 POSTGRES_PASSWORD=<segundo segredo>
 DATABASE_URL=postgresql://jatoba:<segundo segredo>@postgres:5432/jatoba
 ALLOWED_HOSTS=127.0.0.1,localhost,SEU_IP_PUBLICO
+BRAIN_BIND_ADDRESS=127.0.0.1
+TRUST_PROXY_HOPS=1
+HSTS_ENABLED=true
 ```
 
 ## 2. Subir
@@ -62,15 +67,15 @@ Teste local na VPS:
 curl http://127.0.0.1:3338/health
 ```
 
-Teste externo:
+Teste local do backend:
 
 ```bash
-curl http://SEU_IP_PUBLICO:3338/health
+curl http://127.0.0.1:3338/health
 ```
 
 ## 3. Firewall
 
-Abra `3338/tcp` somente se for realmente consumir o MCP diretamente por essa porta. Para produção, prefira publicar somente `443/tcp` por um proxy HTTPS.
+Abra somente `443/tcp` para produção. Não publique `3338/tcp` na internet; o acesso direto deve ficar restrito a localhost ou rede administrativa.
 
 ## 4. Atualizar
 

@@ -12,6 +12,7 @@
     "test": "node scripts/test.mjs",
     "test:release": "node scripts/release-check.mjs",
     "test:recovery": "node scripts/recovery-check.mjs",
+    "test:security": "node scripts/security-check.mjs",
     "eval:embeddings": "node scripts/eval-embeddings.mjs",
     "db:migrate": "tsx src/migrate.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
