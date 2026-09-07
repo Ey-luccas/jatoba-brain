@@ -8,6 +8,9 @@ import { createServer } from 'node:net';
 const project='jatoba-test-'+randomBytes(5).toString('hex');
 const dir=await mkdtemp(path.join(os.tmpdir(),'jatoba-tests-'));
 const env={...process.env,JATOBA_TEST_PASSWORD:randomBytes(24).toString('hex'),JATOBA_TEST_API_KEY:randomBytes(32).toString('hex')};
+const graphifyBin=process.env.GRAPHIFY_BIN??'graphify';
+try { execFileSync(graphifyBin,['--help'],{stdio:'ignore'}); }
+catch { console.error(`Graphify CLI 0.9.55 is required for integration tests. Set GRAPHIFY_BIN to an executable path, for example: GRAPHIFY_BIN=/tmp/jatoba-graphify-venv/bin/graphify npm test`); process.exit(1); }
 const reservation=createServer();
 await new Promise(r=>reservation.listen(0,'127.0.0.1',r));
 env.JATOBA_TEST_DB_PORT=String(reservation.address().port);
