@@ -54,6 +54,8 @@ As migrations verificam referências de repositório, tarefa, sessão e erro no 
 
 Memórias recebem conteúdo, tipo, importância, metadados, vínculos opcionais com tarefa, sessão e agente, além de embedding opcional. Quando embeddings estão disponíveis, a recuperação combina similaridade vetorial, busca textual PostgreSQL, importância e recência. Sem embeddings válidos, a busca textual continua disponível.
 
+O contrato `EmbeddingProvider` é agnóstico ao fornecedor. Provider, modelo, dimensão, timeout e versão são configuráveis por ambiente; cada memória com vetor registra esses metadados. Respostas inválidas, timeout ou dimensão incompatível não interrompem a escrita nem a recuperação textual. A avaliação semântica real é explícita em `npm run eval:embeddings` e não faz parte do `npm test`.
+
 ## Structural Memory
 
 O Graphify extrai explicitamente um grafo AST por repositório Git registrado. O metadado fica em `repository_graphs` com commit, estado, caminho e contagens. `READY` indica snapshot no commit atual; `STALE` indica que o commit mudou; `ERROR` preserva a disponibilidade do núcleo de memória. O grafo permanece no filesystem configurado e somente subgrafos limitados são retornados por MCP.

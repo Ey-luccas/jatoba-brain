@@ -28,8 +28,12 @@ export const config = {
   },
   embeddings: {
     enabled: (process.env.EMBEDDINGS_ENABLED ?? 'false').toLowerCase() === 'true',
-    apiUrl: process.env.EMBEDDINGS_API_URL ?? '',
+    provider: process.env.EMBEDDING_PROVIDER ?? process.env.EMBEDDINGS_PROVIDER ?? 'openai-compatible',
+    apiUrl: process.env.EMBEDDING_BASE_URL ?? process.env.EMBEDDINGS_API_URL ?? '',
     apiKey: process.env.EMBEDDINGS_API_KEY ?? '',
-    model: process.env.EMBEDDINGS_MODEL ?? 'nomic-embed-text',
+    model: process.env.EMBEDDING_MODEL ?? process.env.EMBEDDINGS_MODEL ?? 'nomic-embed-text',
+    dimension: Number(process.env.EMBEDDING_DIMENSION ?? process.env.EMBEDDINGS_DIMENSION ?? 0),
+    timeoutMs: Number(process.env.EMBEDDING_TIMEOUT_MS ?? process.env.EMBEDDINGS_TIMEOUT_MS ?? 5000),
+    version: process.env.EMBEDDING_VERSION ?? process.env.EMBEDDINGS_VERSION ?? '1',
   },
 };

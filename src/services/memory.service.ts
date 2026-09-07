@@ -1,4 +1,5 @@
 import { db } from '../db.js';
+import { config } from '../config.js';
 import { createEmbedding } from '../embeddings.js';
 import { vectorLiteral } from '../utils.js';
 import { resolveProject } from './project.service.js';
@@ -16,13 +17,18 @@ export async function remember(input: Scope & {
   const embedding = await createEmbedding(`${input.title ?? ''}\n${input.content}`);
   const result = await db.query(
     `INSERT INTO memories
-     (project_id,repository_id,task_id,session_id,agent_key,memory_type,title,content,importance,tags,source,metadata,embedding)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector)
+     (project_id,repository_id,task_id,session_id,agent_key,memory_type,title,content,importance,tags,source,metadata,embedding,
+      embedding_provider,embedding_model,embedding_dimension,embedding_version)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13::vector,$14,$15,$16,$17)
      RETURNING id,project_id,repository_id,task_id,session_id,agent_key,memory_type,title,content,importance,tags,source,metadata,created_at`,
     [project.id, input.repositoryId ?? null, input.taskId ?? null, input.sessionId ?? null,
       input.agentKey ?? input.actor ?? null, input.type.toUpperCase(), input.title ?? null, input.content,
       budget(input.importance,5,10), input.tags ?? [], input.source ?? 'agent', input.metadata ?? {},
-      embedding ? vectorLiteral(embedding) : null],
+      embedding ? vectorLiteral(embedding) : null,
+      embedding ? config.embeddings.provider : null,
+      embedding ? config.embeddings.model : null,
+      embedding?.length ?? null,
+      embedding ? config.embeddings.version : null],
   );
   return result.rows[0];
 }

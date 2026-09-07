@@ -1,28 +1,55 @@
+import { createHash } from 'node:crypto';
 import { config } from './config.js';
 
+export interface EmbeddingProvider {
+  providerName: string;
+  modelName: string;
+  dimension: number | null;
+  embed(text: string): Promise<number[] | null>;
+}
+
+const cache = new Map<string, number[]>();
+
+function validEmbedding(embedding: unknown): embedding is number[] {
+  return Array.isArray(embedding) && embedding.length > 0 && embedding.length <= 16000
+    && embedding.every((value) => typeof value === 'number' && Number.isFinite(value))
+    && embedding.some((value) => value !== 0);
+}
+
+export function createEmbeddingProvider(): EmbeddingProvider {
+  return {
+    providerName: config.embeddings.provider,
+    modelName: config.embeddings.model,
+    dimension: config.embeddings.dimension || null,
+    async embed(text: string) {
+      if (!config.embeddings.enabled || !config.embeddings.apiUrl) return null;
+      const response = await fetch(config.embeddings.apiUrl, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(config.embeddings.apiKey ? { authorization: `Bearer ${config.embeddings.apiKey}` } : {}),
+        },
+        body: JSON.stringify({ model: config.embeddings.model, input: text }),
+        signal: AbortSignal.timeout(config.embeddings.timeoutMs),
+      });
+      if (!response.ok) return null;
+      const payload = (await response.json()) as { data?: Array<{ embedding?: unknown }> };
+      const embedding = payload.data?.[0]?.embedding;
+      if (!validEmbedding(embedding)) return null;
+      if (config.embeddings.dimension && embedding.length !== config.embeddings.dimension) return null;
+      return embedding;
+    },
+  };
+}
+
 export async function createEmbedding(text: string): Promise<number[] | null> {
-  if (!config.embeddings.enabled) return null;
-  if (!config.embeddings.apiUrl) return null;
-
+  const key = createHash('sha256').update(`${config.embeddings.provider}\0${config.embeddings.model}\0${text}`).digest('hex');
+  const cached = cache.get(key);
+  if (cached) return [...cached];
   try {
-  const headers: Record<string, string> = { 'content-type': 'application/json' };
-  if (config.embeddings.apiKey) headers.authorization = `Bearer ${config.embeddings.apiKey}`;
-
-  const response = await fetch(config.embeddings.apiUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ model: config.embeddings.model, input: text }),
-    signal: AbortSignal.timeout(5_000),
-  });
-
-  if (!response.ok) {
-    return null;
-  }
-
-  const payload = (await response.json()) as { data?: Array<{ embedding?: number[] }> };
-  const embedding = payload.data?.[0]?.embedding;
-  if (!embedding?.length || embedding.length > 16000 || !embedding.every(Number.isFinite) || embedding.every(v => v === 0)) return null;
-  return embedding;
+    const embedding = await createEmbeddingProvider().embed(text);
+    if (embedding) cache.set(key, embedding);
+    return embedding;
   } catch {
     return null;
   }

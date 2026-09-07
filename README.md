@@ -202,7 +202,7 @@ A implementação foi validada localmente com PostgreSQL, pgvector, Graphify, Do
 - persistência confirmada após restart;
 - Graphify real, isolamento de projeto/repositório, Work Graph, Hybrid GraphRAG, handoff, dashboard autenticado e observabilidade exercitados.
 
-A qualidade semântica foi validada estruturalmente com embeddings determinísticos de teste. Uma avaliação de relevância com modelo de embeddings real ainda está pendente.
+A integração vetorial é validada estruturalmente com embeddings determinísticos de teste. A avaliação de relevância com modelo real é executada separadamente por `npm run eval:embeddings`; neste ambiente ela permanece inconclusiva até um provider local ser disponibilizado. Veja [docs/SEMANTIC_EVALUATION.md](docs/SEMANTIC_EVALUATION.md).
 
 Execute a validação:
 

@@ -51,7 +51,7 @@ before(async()=>{
 after(async()=>{await new Promise<void>((r,e)=>server.close(err=>err?e(err):r()));await close();await db.end();});
 
 test('incremental migrations are tracked; reapplication preserves data',async()=>{
-  assert.equal((await sql('SELECT count(*) FROM schema_migrations')).rows[0].count,'4');
+  assert.equal((await sql('SELECT count(*) FROM schema_migrations')).rows[0].count,'5');
   assert.equal((await sql("SELECT count(*) FROM memories WHERE memory_type='custom_legacy'")).rows[0].count,'1');
 });
 test('project and repository isolation; explicit global; no implicit default project',async()=>{
@@ -196,6 +196,26 @@ test('pgvector semantic retrieval combines scores and supports mixed vector dime
     const result=await call('recall',{project:alpha.id,query:'session renewal'});
     assert.ok(result.some((r:any)=>r.id===memory.id&&r.similarity>0.9));
     assert.ok(result.every((r:any)=>r.project_id===alpha.id));
+  } finally {Object.assign(config.embeddings,previous);await new Promise<void>(r=>provider.close(()=>r()));}
+});
+test('embedding contract rejects wrong dimensions, invalid responses and timeouts; cache avoids duplicate calls',async()=>{
+  let calls=0;
+  const provider=createServer((req,res)=>{let body='';req.on('data',chunk=>body+=chunk);req.on('end',()=>{
+    calls+=1;const input=JSON.parse(body).input;res.setHeader('content-type','application/json');
+    if(input==='slow') {setTimeout(()=>res.end(JSON.stringify({data:[{embedding:[1,0,0]}]})),50);return;}
+    if(input==='invalid') {res.end(JSON.stringify({data:[{embedding:['not-a-number']}]}));return;}
+    res.end(JSON.stringify({data:[{embedding:[1,0,0]}]}));
+  });});
+  await new Promise<void>(r=>provider.listen(0,'127.0.0.1',r));
+  const previous={...config.embeddings};config.embeddings.enabled=true;
+  config.embeddings.apiUrl='http://127.0.0.1:'+(provider.address() as any).port;config.embeddings.dimension=4;config.embeddings.timeoutMs=10;
+  try {
+    assert.equal(await createEmbedding('wrong dimension'),null);
+    assert.equal(await createEmbedding('invalid'),null);
+    assert.equal(await createEmbedding('slow'),null);
+    config.embeddings.dimension=3;config.embeddings.timeoutMs=1000;
+    assert.deepEqual(await createEmbedding('cache-contract'),[1,0,0]);
+    const beforeCache=calls;assert.deepEqual(await createEmbedding('cache-contract'),[1,0,0]);assert.equal(calls,beforeCache);
   } finally {Object.assign(config.embeddings,previous);await new Promise<void>(r=>provider.close(()=>r()));}
 });
 test('importance and recency affect recall ordering',async()=>{
