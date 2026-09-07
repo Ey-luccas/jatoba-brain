@@ -51,6 +51,8 @@ export const config = {
     model: process.env.EMBEDDING_MODEL ?? process.env.EMBEDDINGS_MODEL ?? 'nomic-embed-text',
     dimension: Number(process.env.EMBEDDING_DIMENSION ?? process.env.EMBEDDINGS_DIMENSION ?? 0),
     timeoutMs: Number(process.env.EMBEDDING_TIMEOUT_MS ?? process.env.EMBEDDINGS_TIMEOUT_MS ?? 5000),
+    healthTtlMs: Number(process.env.EMBEDDING_HEALTH_TTL_MS ?? 30000),
+    healthTimeoutMs: Number(process.env.EMBEDDING_HEALTH_TIMEOUT_MS ?? 2000),
     version: process.env.EMBEDDING_VERSION ?? process.env.EMBEDDINGS_VERSION ?? '1',
   },
 };

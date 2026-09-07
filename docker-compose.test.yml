@@ -21,7 +21,12 @@ services:
       DATABASE_URL: postgresql://jatoba:${JATOBA_TEST_PASSWORD}@postgres:5432/jatoba_test
       BRAIN_API_KEY: ${JATOBA_TEST_API_KEY:?Test runner supplies an ephemeral key}
       ALLOWED_HOSTS: 127.0.0.1,localhost
-      EMBEDDINGS_ENABLED: "false"
+      EMBEDDINGS_ENABLED: ${EMBEDDINGS_ENABLED:-false}
+      GRAPHIFY_BIN: ${GRAPHIFY_BIN:-graphify}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_TIMEOUT_MS: ${EMBEDDING_TIMEOUT_MS:-250}
+      EMBEDDING_HEALTH_TTL_MS: ${EMBEDDING_HEALTH_TTL_MS:-1000}
+      EMBEDDING_HEALTH_TIMEOUT_MS: ${EMBEDDING_HEALTH_TIMEOUT_MS:-250}
       WORKSPACE_DIR: /workspace
       GRAPH_DIR: /app/graphs
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
@@ -30,8 +35,19 @@ services:
       RATE_LIMIT_HEALTH_MAX: ${RATE_LIMIT_HEALTH_MAX:-300}
     ports:
       - "127.0.0.1::3338"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     depends_on:
       postgres:
         condition: service_healthy
+      embedding-test-provider:
+        condition: service_started
+  embedding-test-provider:
+    image: node:20-alpine
+    command: ["node", "/provider.mjs"]
+    volumes:
+      - ./scripts/embedding-test-provider.mjs:/provider.mjs:ro
+    expose:
+      - "4010"
 volumes:
   test_postgres:

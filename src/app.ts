@@ -22,8 +22,8 @@ export function createApp() {
   app.use(corsGuard);
   app.use(securityHeaders);
   app.get('/live',rateLimit('health'),(_req,res)=>res.json({ok:true,service:'jatoba-brain'}));
-  app.get('/ready',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,status:result.status,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify});});
-  app.get('/health',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,status:result.status,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify,memory:result.memory,db_pool:result.db_pool,node_version:result.node_version,uptime_seconds:result.uptime_seconds});});
+  app.get('/ready',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,status:result.status,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify,embedding:result.embedding});});
+  app.get('/health',rateLimit('health'),async(_req,res)=>{const result=await health();res.status(result.ok?200:503).json({ok:result.ok,status:result.status,service:'jatoba-brain',database:result.database,pgvector:result.pgvector,graphify:result.graphify,embedding:result.embedding,memory:result.memory,db_pool:result.db_pool,node_version:result.node_version,uptime_seconds:result.uptime_seconds});});
   app.get('/metrics',rateLimit('health'),authGuard,async(_req,res)=>{res.type('text/plain; version=0.0.4').send(await prometheusText());});
   app.use('/api',rateLimit('api'));
   app.use('/dashboard',dashboardGuard,express.static(fileURLToPath(new URL('../dashboard/',import.meta.url))));

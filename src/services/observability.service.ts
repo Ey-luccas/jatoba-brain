@@ -4,6 +4,7 @@ import { config } from '../config.js';
 import { resolveProject } from './project.service.js';
 import { graphifyAvailable } from './graph.service.js';
 import { resolveScope, type Scope } from './scope.js';
+import { embeddingHealth } from '../embeddings.js';
 import { increment, observeDuration, prometheusText, runtimeSnapshot } from './runtime-metrics.js';
 
 export { increment, observeDuration, prometheusText, runtimeSnapshot };
@@ -52,13 +53,16 @@ export async function health() {
   try {
     const database=await pingDb();
     const vector=Boolean((await db.query("SELECT 1 FROM pg_extension WHERE extname='vector'")).rowCount);
+    if (!database) return {ok:false,status:'UNHEALTHY',service:'jatoba-brain',app:true,database:false,pgvector:false,embedding:{status:'unavailable',latencyMs:null,checkedAt:null},uptime_seconds:Math.floor(process.uptime())};
     const graphify=await graphifyAvailable();
-    const status=!database?'UNHEALTHY':(!graphify || (config.embeddings.enabled && !config.embeddings.apiUrl)?'DEGRADED':'HEALTHY');
+    const embedding=await embeddingHealth();
+    const status=!graphify || embedding.status==='unavailable'?'DEGRADED':'HEALTHY';
     return {ok:database,status,service:'jatoba-brain',app:true,database,pgvector:vector,graphify,
+      embedding,
       memory:process.memoryUsage(),node_version:process.version,
       db_pool:{total:db.totalCount,idle:db.idleCount,waiting:db.waitingCount,active:Math.max(0,db.totalCount-db.idleCount)},
       uptime_seconds:Math.floor(process.uptime())};
-  } catch { return {ok:false,status:'UNHEALTHY',service:'jatoba-brain',app:true,database:false,pgvector:false,uptime_seconds:Math.floor(process.uptime())}; }
+  } catch { return {ok:false,status:'UNHEALTHY',service:'jatoba-brain',app:true,database:false,pgvector:false,embedding:{status:'unavailable',latencyMs:null,checkedAt:null},uptime_seconds:Math.floor(process.uptime())}; }
 }
 
 export async function metrics(input:Scope) {

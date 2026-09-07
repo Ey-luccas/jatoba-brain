@@ -9,7 +9,14 @@ Jatoba Brain uses small in-process runtime metrics plus the existing PostgreSQL 
 - `/health` returns dependency state, process memory, Node version, uptime, and real PostgreSQL pool gauges.
 - `/metrics` returns Prometheus-compatible text and requires the normal `BRAIN_API_KEY` authentication. It is not public by default.
 
-Graphify and embeddings are optional dependencies because memory and textual retrieval have fallbacks. Database failure makes readiness `UNHEALTHY`. Graphify unavailable, or an enabled embedding provider without a configured URL, makes the service `DEGRADED`.
+Graphify and embeddings are optional dependencies because memory and textual retrieval have fallbacks. Database failure makes readiness `UNHEALTHY`. Graphify unavailable, or an enabled embedding provider without a configured URL, makes the service `DEGRADED`. The current health check does not probe a configured remote embedding URL; provider outage is detected by operation metrics and textual fallback.
+
+| Component | Failure | Brain state | Fallback |
+| --- | --- | --- | --- |
+| PostgreSQL | offline or unreachable | `UNHEALTHY`, `/ready` returns `503` | none; operations fail with sanitized errors |
+| Graphify | binary unavailable or indexing fails | `DEGRADED` | semantic memory and work graph continue |
+| Embedding provider | probe/request failure or timeout | `DEGRADED`, `/ready` remains `200` | PostgreSQL textual retrieval |
+| Embeddings disabled | provider not configured | `HEALTHY`, `/ready` remains `200` | text-only mode |
 
 ## Metric Classes
 
@@ -54,7 +61,7 @@ Backup scripts are not run automatically and do not fabricate runtime counters. 
 
 `audit_log` currently grows until an operator applies a reviewed retention policy. No automatic deletion is enabled by default. Before enabling cleanup, define `AUDIT_RETENTION_DAYS`, review the required audit window, and run deletion in a controlled maintenance task.
 
-After a Brain restart, runtime counters and histograms reset, while PostgreSQL memory, audit records, migrations, and persisted data remain. The release and observability checks verify this distinction.
+After a Brain restart, runtime counters and histograms reset, while PostgreSQL memory, audit records, migrations, and persisted data remain. Embedding health is cached only in process memory; the provider probe validates a real small vector, with configurable `EMBEDDING_HEALTH_TTL_MS` and `EMBEDDING_HEALTH_TIMEOUT_MS`. The release and observability checks verify this distinction.
 
 ## VPS Integration Plan
 
@@ -74,4 +81,4 @@ Run the disposable observability check with:
 npm run test:observability
 ```
 
-It verifies metrics authentication and format, HTTP/MCP counters, request IDs, recall and context latency, embedding fallback, pool and process gauges, secret redaction, degradation status, and restart behavior without creating persistent monitoring infrastructure.
+It verifies normal health, Graphify degradation, embedding provider failure with textual fallback, PostgreSQL `UNHEALTHY`/not-ready behavior, recovery, metrics, request IDs, secret redaction, and restart behavior without creating persistent monitoring infrastructure.
