@@ -5,6 +5,7 @@ export async function startTask(input: {
   project?: string;
   actor?: string;
   repositoryId?: string;
+  sessionId?: string;
   agentKey: string;
   title: string;
   description?: string;
@@ -15,8 +16,8 @@ export async function startTask(input: {
   const project = await resolveProject(input.project, input.actor);
   const result = await db.query(
     `INSERT INTO tasks
-      (project_id, repository_id, parent_task_id, agent_key, title, description, status, priority, started_at, metadata)
-     VALUES ($1,$2,$3,$4,$5,$6,'running',$7,NOW(),$8)
+      (project_id, repository_id, parent_task_id, agent_key, title, description, status, priority, started_at, metadata,session_id)
+     VALUES ($1,$2,$3,$4,$5,$6,'running',$7,NOW(),$8,$9)
      RETURNING *`,
     [
       project.id,
@@ -27,6 +28,7 @@ export async function startTask(input: {
       input.description ?? null,
       Math.max(1, Math.min(10, input.priority ?? 5)),
       input.metadata ?? {},
+      input.sessionId ?? null,
     ],
   );
   return result.rows[0];
@@ -34,6 +36,8 @@ export async function startTask(input: {
 
 export async function finishTask(input: {
   taskId: string;
+  project?: string;
+  agentKey?: string;
   status?: 'completed' | 'failed' | 'blocked' | 'cancelled';
   summary: string;
   filesChanged?: Array<{ path: string; action?: string }>;
@@ -49,13 +53,18 @@ export async function finishTask(input: {
   const client = await db.connect();
   try {
     await client.query('BEGIN');
+    const current = (await client.query('SELECT * FROM tasks WHERE id=$1 FOR UPDATE', [input.taskId])).rows[0];
+    if (!current) throw new Error('Task not found');
+    if (input.project && (await resolveProject(input.project)).id !== current.project_id) throw new Error('Task project mismatch');
+    if (input.agentKey && input.agentKey !== current.agent_key) throw new Error('Task is owned by another agent');
+    if (['completed','cancelled'].includes(current.status)) throw new Error('Task is already finished');
     const taskResult = await client.query(
       `UPDATE tasks
        SET status = $2, finished_at = NOW(), summary = $3,
            metadata = metadata || $4::jsonb, updated_at = NOW()
        WHERE id = $1
        RETURNING *`,
-      [input.taskId, input.status ?? 'completed', input.summary, JSON.stringify(input.metadata ?? {})],
+      [input.taskId, input.status ?? 'completed', input.summary, JSON.stringify({ ...input.metadata, pending: input.pending ?? [], filesChanged: input.filesChanged ?? [] })],
     );
     const task = taskResult.rows[0];
     if (!task) throw new Error(`Task not found: ${input.taskId}`);
@@ -117,6 +126,8 @@ export async function recordDecision(input: {
   actor?: string;
   repositoryId?: string;
   taskId?: string;
+  sessionId?: string;
+  files?: string[];
   agentKey?: string;
   title: string;
   decision: string;
@@ -127,11 +138,12 @@ export async function recordDecision(input: {
   const project = await resolveProject(input.project, input.actor);
   const result = await db.query(
     `INSERT INTO decisions
-      (project_id, repository_id, task_id, agent_key, title, decision, reason, consequences, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      (project_id, repository_id, task_id, agent_key, title, decision, reason, consequences, status,session_id,metadata)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [project.id, input.repositoryId ?? null, input.taskId ?? null, input.agentKey ?? input.actor ?? null,
-      input.title, input.decision, input.reason ?? null, input.consequences ?? null, input.status ?? 'accepted'],
+      input.title, input.decision, input.reason ?? null, input.consequences ?? null, input.status ?? 'accepted',
+      input.sessionId ?? null,{files:input.files ?? []}],
   );
   return result.rows[0];
 }
@@ -141,6 +153,8 @@ export async function recordError(input: {
   actor?: string;
   repositoryId?: string;
   taskId?: string;
+  sessionId?: string;
+  files?: string[];
   agentKey?: string;
   title: string;
   error: string;
@@ -151,11 +165,12 @@ export async function recordError(input: {
   const project = await resolveProject(input.project, input.actor);
   const result = await db.query(
     `INSERT INTO errors
-      (project_id, repository_id, task_id, agent_key, title, error_text, cause, solution, status)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+      (project_id, repository_id, task_id, agent_key, title, error_text, cause, solution, status,session_id,metadata)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [project.id, input.repositoryId ?? null, input.taskId ?? null, input.agentKey ?? input.actor ?? null,
-      input.title, input.error, input.cause ?? null, input.solution ?? null, input.status ?? (input.solution ? 'resolved' : 'open')],
+      input.title, input.error, input.cause ?? null, input.solution ?? null, input.status ?? (input.solution ? 'resolved' : 'open'),
+      input.sessionId ?? null,{files:input.files ?? []}],
   );
   return result.rows[0];
 }
@@ -165,6 +180,7 @@ export async function createCheckpoint(input: {
   actor?: string;
   repositoryId?: string;
   taskId?: string;
+  sessionId?: string;
   agentKey?: string;
   title: string;
   summary: string;
@@ -176,11 +192,11 @@ export async function createCheckpoint(input: {
   const project = await resolveProject(input.project, input.actor);
   const result = await db.query(
     `INSERT INTO checkpoints
-      (project_id, repository_id, task_id, agent_key, title, summary, commit_hash, branch, tests, metadata)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+      (project_id, repository_id, task_id, agent_key, title, summary, commit_hash, branch, tests, metadata,session_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
      RETURNING *`,
     [project.id, input.repositoryId ?? null, input.taskId ?? null, input.agentKey ?? input.actor ?? null,
-      input.title, input.summary, input.commitHash ?? null, input.branch ?? null, input.tests ?? {}, input.metadata ?? {}],
+      input.title, input.summary, input.commitHash ?? null, input.branch ?? null, input.tests ?? {}, input.metadata ?? {}, input.sessionId ?? null],
   );
   return result.rows[0];
 }

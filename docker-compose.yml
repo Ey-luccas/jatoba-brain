@@ -7,7 +7,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-jatoba}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
     volumes:
-      - jatoba_postgres:/var/lib/postgresql/data
+      - jatoba_postgres:/var/lib/postgresql
       - ./db/init.sql:/docker-entrypoint-initdb.d/001-init.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-jatoba} -d ${POSTGRES_DB:-jatoba}"]
@@ -21,7 +21,7 @@ services:
     build: .
     restart: unless-stopped
     env_file:
-      - .env
+      - ${JATOBA_ENV_FILE:-.env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -30,6 +30,7 @@ services:
     volumes:
       - ./exports:/app/exports
       - ./workspace:/workspace:ro
+      - ./graphs:/app/graphs
     extra_hosts:
       - "host.docker.internal:host-gateway"
     networks:

@@ -123,44 +123,36 @@ export async function resolveProject(projectRef?: string, actor?: string) {
   return result.rows[0];
 }
 
-export async function projectContext(projectRef: string) {
+export async function projectContext(projectRef: string, options: {
+  repositoryId?: string; max_items?: number; max_tasks?: number; max_decisions?: number; max_errors?: number;
+  include_structural?: boolean; query?: string;
+} = {}) {
+  const { resolveScope, budget } = await import('./scope.js');
   const project = await getProject(projectRef);
-  const [repos, tasks, decisions, errors, checkpoints, memories] = await Promise.all([
-    db.query('SELECT * FROM repositories WHERE project_id = $1 ORDER BY created_at', [project.id]),
-    db.query(
-      `SELECT id, title, status, priority, started_at, finished_at, created_at
-       FROM tasks WHERE project_id = $1 ORDER BY created_at DESC LIMIT 20`,
-      [project.id],
-    ),
-    db.query(
-      `SELECT id, title, decision, reason, status, created_at
-       FROM decisions WHERE project_id = $1 ORDER BY created_at DESC LIMIT 20`,
-      [project.id],
-    ),
-    db.query(
-      `SELECT id, title, error_text, cause, solution, status, created_at
-       FROM errors WHERE project_id = $1 ORDER BY created_at DESC LIMIT 20`,
-      [project.id],
-    ),
-    db.query(
-      `SELECT id, title, commit_hash, branch, summary, created_at
-       FROM checkpoints WHERE project_id = $1 ORDER BY created_at DESC LIMIT 10`,
-      [project.id],
-    ),
-    db.query(
-      `SELECT id, memory_type, title, content, importance, tags, source, created_at
-       FROM memories WHERE project_id = $1 ORDER BY importance DESC, created_at DESC LIMIT 30`,
-      [project.id],
-    ),
-  ]);
-
-  return {
-    project,
-    repositories: repos.rows,
-    recent_tasks: tasks.rows,
-    decisions: decisions.rows,
-    errors: errors.rows,
-    checkpoints: checkpoints.rows,
-    important_memories: memories.rows,
+  const scope = await resolveScope({project: project.id,repositoryId: options.repositoryId});
+  let remaining = budget(options.max_items,50,100);
+  const definitions = [
+    ['repositories','repositories',10,'created_at',10],
+    ['recent_tasks','tasks',options.max_tasks ?? 10,'created_at DESC',20],
+    ['decisions','decisions',options.max_decisions ?? 10,'created_at DESC',20],
+    ['errors','errors',options.max_errors ?? 10,'created_at DESC',20],
+    ['checkpoints','checkpoints',5,'created_at DESC',10],
+    ['important_memories','memories',10,'importance DESC,created_at DESC',30],
+  ] as const;
+  const result: Record<string, any[]> = {};
+  for (const [key,table,requested,order,max] of definitions) {
+    const limit = Math.min(remaining,budget(requested,10,max));
+    const fields = table === 'memories' ? 'id,project_id,repository_id,task_id,memory_type,title,content,importance,source,created_at' : '*';
+    result[key] = limit ? (await db.query(`SELECT ${fields} FROM ${table} WHERE project_id=$1
+      AND ($2::uuid IS NULL OR ${table === 'repositories' ? 'id' : 'repository_id'}=$2) ORDER BY ${order} LIMIT $3`,
+      [project.id,scope.repositoryId,limit])).rows : [];
+    remaining-=result[key].length;
+  }
+  const structural_context = options.include_structural && scope.repositoryId && remaining
+    ? await (await import('./graph.service.js')).graphQuery({project:project.id,repositoryId:scope.repositoryId,
+      query:options.query ?? '',max_nodes:Math.min(remaining,10),max_edges:10,depth:1}) : undefined;
+  return {project,...result,structural_context} as {
+    project: any; repositories: any[]; recent_tasks: any[]; decisions: any[]; errors: any[];
+    checkpoints: any[]; important_memories: any[]; structural_context?: unknown;
   };
 }

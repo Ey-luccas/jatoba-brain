@@ -3,6 +3,8 @@ import path from 'node:path';
 import { config } from '../config.js';
 import { db } from '../db.js';
 import { getProject, projectContext } from './project.service.js';
+import { agentHandoff } from './agent.service.js';
+import { timeline } from './work-graph.service.js';
 
 function section(title: string, body: string): string {
   return `# ${title}\n\n${body.trim()}\n`;
@@ -113,21 +115,25 @@ export async function buildDocuments(projectRef: string): Promise<Record<string,
     lines(ctx.repositories, (r) => `- \`${r.slug}\`${r.remote_url ? ` — ${r.remote_url}` : ''}`),
   ].join('\n'));
 
+  const operationalTimeline = await timeline({project:project.id,limit:100});
+  const handoff = await agentHandoff({project:project.id});
+  const architecture = memories.rows.filter(m=>m.memory_type==='ARCHITECTURE');
   return {
     'PROJECT.md': projectMd,
+    'ARCHITECTURE.md': section('Arquitetura registrada',lines(architecture,m=>`## ${m.title ?? 'Registro'}\n\n${m.content}`)),
     'DECISIONS.md': decisionsMd,
     'ERRORS-AND-SOLUTIONS.md': errorsMd,
-    'TIMELINE.md': timelineMd,
+    'TIMELINE.md': timelineMd + '\n## Eventos operacionais\n\n' + operationalTimeline.map(e=>`- ${new Date(e.created_at).toISOString()} ${e.event} (${e.entity_type}:${e.entity_id})`).join('\n'),
     'MEMORIES.md': memoriesMd,
-    'HANDOFF.md': handoffMd,
+    'HANDOFF.md': handoffMd + '\n## Continuidade entre agentes\n\n' + JSON.stringify(handoff,null,2),
   };
 }
 
 export async function exportDocuments(projectRef: string) {
   const project = await getProject(projectRef);
-  const docs = await buildDocuments(project.slug);
+  const docs = await buildDocuments(project.id);
   const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const dir = path.resolve(config.exportDir, project.slug, stamp);
+  const dir = path.resolve(config.exportDir, project.workspace_slug, project.slug, stamp);
   await mkdir(dir, { recursive: true });
   await Promise.all(Object.entries(docs).map(([name, content]) => writeFile(path.join(dir, name), content, 'utf8')));
 
