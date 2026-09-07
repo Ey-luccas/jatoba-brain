@@ -10,6 +10,7 @@ import { db } from '../src/db.js';
 import { config } from '../src/config.js';
 import { migrate } from '../src/migrate.js';
 import { runTool,toolRegistry } from '../src/mcp/server.js';
+import { TASK_STATUSES } from '../src/services/task.service.js';
 import { createApp } from '../src/app.js';
 import { graphIndex,graphQuery,graphStatus,traverseGraph } from '../src/services/graph.service.js';
 import { createEmbedding } from '../src/embeddings.js';
@@ -50,7 +51,7 @@ before(async()=>{
 after(async()=>{await new Promise<void>((r,e)=>server.close(err=>err?e(err):r()));await close();await db.end();});
 
 test('incremental migrations are tracked; reapplication preserves data',async()=>{
-  assert.equal((await sql('SELECT count(*) FROM schema_migrations')).rows[0].count,'3');
+  assert.equal((await sql('SELECT count(*) FROM schema_migrations')).rows[0].count,'4');
   assert.equal((await sql("SELECT count(*) FROM memories WHERE memory_type='custom_legacy'")).rows[0].count,'1');
 });
 test('project and repository isolation; explicit global; no implicit default project',async()=>{
@@ -76,6 +77,20 @@ test('budgets are bounded and validated',async()=>{
   const ctx=await call('project_context',{project:alpha.id,max_items:1});
   assert.equal(Object.values(ctx).filter(Array.isArray).flat().length,1);
 });
+test('task status contract and registered agent identity are enforced',async()=>{
+  for(const status of TASK_STATUSES) {
+    const result=await sql(`INSERT INTO tasks(project_id,repository_id,agent_key,title,status)
+      VALUES($1,$2,'codex-test',$3,$4) RETURNING status`,[alpha.id,backend.id,`status ${status}`,status]);
+    assert.equal(result.rows[0].status,status);
+  }
+  await assert.rejects(sql(`INSERT INTO tasks(project_id,repository_id,agent_key,title,status)
+    VALUES($1,$2,'codex-test','invalid status','unknown')`,[alpha.id,backend.id]));
+  await assert.rejects(sql(`INSERT INTO tasks(project_id,repository_id,agent_key,title)
+    VALUES($1,$2,'phantom-agent','invalid agent')`,[alpha.id,backend.id]),/Agent does not exist/);
+  const auto=await call('start_task',{project:alpha.id,repositoryId:backend.id,agentKey:'auto-registered',title:'auto registration'});
+  assert.equal((await sql('SELECT key FROM agents WHERE key=$1',['auto-registered'])).rows[0].key,'auto-registered');
+  assert.equal(auto.agent_key,'auto-registered');
+});
 test('agent selection, task lifecycle, decisions, errors and solutions persist with automatic edges',async()=>{
   session=await call('session_start',{project:alpha.id,repositoryId:backend.id,agentKey:'codex-test',title:'Authentication'});
   await call('project_select',{project:alpha.id,actor:'codex-test'});
@@ -89,6 +104,11 @@ test('agent selection, task lifecycle, decisions, errors and solutions persist w
   for(const relation of ['EXECUTED','CREATED','FOUND'])assert.ok(edges.some((e:any)=>e.relation_type===relation));
   const solutionEdges=await call('relations_query',{project:alpha.id,source:{type:'ERROR',id:error.id}});
   assert.ok(solutionEdges.some((e:any)=>e.relation_type==='RESOLVED_BY'&&e.target_id===solution.id));
+  const decisionEdges=await call('relations_query',{project:alpha.id,source:{type:'DECISION',id:decision.id}});
+  assert.ok(decisionEdges.some((e:any)=>e.relation_type==='AFFECTS'&&e.target_id.endsWith(':auth.ts')));
+  const child=await call('start_task',{project:alpha.id,repositoryId:backend.id,agentKey:'codex-test',parentTaskId:task.id,title:'child task'});
+  const childEdges=await call('relations_query',{project:alpha.id,source:{type:'TASK',id:child.id}});
+  assert.ok(childEdges.some((e:any)=>e.relation_type==='DEPENDS_ON'&&e.target_id===task.id));
   await assert.rejects(call('record_decision',{project:beta.id,taskId:task.id,title:'bad',decision:'bad'}));
   await assert.rejects(call('record_error',{project:alpha.id,repositoryId:frontend.id,taskId:task.id,title:'bad',error:'bad'}));
 });
@@ -121,6 +141,8 @@ test('task ownership conflict, explicit takeover and concurrent assignment',asyn
   await sql("UPDATE tasks SET status='pending' WHERE id=$1",[pending.id]);
   const claims=await Promise.all(['codex-test','claude-test'].map(agentKey=>call('task_assign',{project:alpha.id,taskId:pending.id,agentKey})));
   assert.equal(claims.filter(r=>r.claimed).length,1);
+  const assignment=await call('relations_query',{project:alpha.id,source:{type:'TASK',id:pending.id},relation:'ASSIGNED_TO'});
+  assert.ok(assignment.length>0);
 });
 test('finish_task and checkpoint preserve files, pending items and supplied commit evidence',async()=>{
   const commit=git(path.join(config.workspaceDir,'backend'),'rev-parse','HEAD');
@@ -176,6 +198,14 @@ test('pgvector semantic retrieval combines scores and supports mixed vector dime
     assert.ok(result.every((r:any)=>r.project_id===alpha.id));
   } finally {Object.assign(config.embeddings,previous);await new Promise<void>(r=>provider.close(()=>r()));}
 });
+test('importance and recency affect recall ordering',async()=>{
+  const low=await call('remember',{project:alpha.id,type:'GENERAL',content:'ordering signal',importance:1});
+  const high=await call('remember',{project:alpha.id,type:'GENERAL',content:'ordering signal',importance:10});
+  await sql('UPDATE memories SET created_at=now()-interval \'60 days\' WHERE id=$1',[low.id]);
+  const result=await call('recall',{project:alpha.id,query:'ordering signal',limit:2});
+  assert.equal(result[0].id,high.id);
+  assert.ok(result.findIndex((row:any)=>row.id===high.id)<result.findIndex((row:any)=>row.id===low.id));
+});
 test('real Graphify AST indexing, independent repository graphs and stale status',async()=>{
   const result=await graphIndex({project:alpha.id,repositoryId:frontend.id});
   assert.equal(result.status,'READY','Install graphifyy==0.9.55 and set GRAPHIFY_BIN to run structural integration tests');
@@ -192,6 +222,11 @@ test('real Graphify AST indexing, independent repository graphs and stale status
   assert.equal((await graphIndex({project:alpha.id,repositoryId:backend.id})).status,'READY');
   assert.notEqual((await sql('SELECT graph_path FROM repository_graphs WHERE repository_id=$1',[frontend.id])).rows[0].graph_path,
     (await sql('SELECT graph_path FROM repository_graphs WHERE repository_id=$1',[backend.id])).rows[0].graph_path);
+  const neighborsViaMcp=await call('graph_neighbors',{project:alpha.id,repositoryId:frontend.id,entity:'Session',depth:1,max_nodes:10,max_edges:10});
+  const impactViaMcp=await call('graph_impact',{project:alpha.id,repositoryId:frontend.id,entity:'Session',depth:1,max_nodes:10,max_edges:10});
+  assert.ok(neighborsViaMcp.nodes.length>0&&impactViaMcp.nodes.length>0);
+  const projectEvents=await call('project_timeline',{project:alpha.id,limit:5});
+  assert.ok(projectEvents.length>0);
 });
 test('structural impact is reverse-only and traversal detects loops with hard budgets',()=>{
   const nodes=['A','B','C','D'].map(id=>({id,label:id,type:'class'}));
@@ -220,6 +255,9 @@ test('hybrid context, deduplication, traceability and total budget',async()=>{
   const tiny=await contextRetrieve({project:alpha.id,query:'authentication',max_items:1});assert.equal(tiny.items_returned,1);
   const isolated=await contextRetrieve({project:beta.id,query:'authentication',max_items:20});
   assert.ok(isolated.sources.every(s=>s.project_id===beta.id));
+  const unindexed=await call('repository_add',{project:alpha.id,name:'Unindexed'});
+  const missing=await contextRetrieve({project:alpha.id,repositoryId:unindexed.id,query:'authentication',max_items:10});
+  assert.ok(missing.warnings.some((warning:string)=>warning.startsWith('STRUCTURAL_MISSING')));
 });
 test('cross-agent handoff promotes summary, excludes raw chat and carries context',async()=>{
   await call('session_note',{sessionId:session.id,role:'user',content:'RAW_CONVERSATION_MARKER'});

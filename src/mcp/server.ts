@@ -3,7 +3,7 @@ import * as z from 'zod/v4';
 import { asJsonText } from '../utils.js';
 import { createProject,addRepository,listProjects,projectContext,selectProject } from '../services/project.service.js';
 import { remember,recall } from '../services/memory.service.js';
-import { startTask,finishTask,recordDecision,recordError,createCheckpoint } from '../services/task.service.js';
+import { startTask,finishTask,recordDecision,recordError,createCheckpoint,TASK_STATUSES } from '../services/task.service.js';
 import { startSession,sessionNote,finishSession } from '../services/session.service.js';
 import { recordSolution } from '../services/solution.service.js';
 import { gitSnapshot } from '../services/git.service.js';
@@ -42,7 +42,7 @@ tool('project_context','Contexto limitado de projeto/repositorio.',z.object({pro
 tool('start_task','Inicia tarefa.',z.object({...record,agentKey:text,title:text,description:optional,priority:z.number().int().min(1).max(10).optional(),
   parentTaskId:id.optional(),metadata}),startTask);
 tool('finish_task','Finaliza tarefa com arquivos, testes e pendencias.',z.object({taskId:id,project:optional,agentKey:optional,
-  status:z.enum(['completed','failed','blocked','cancelled']).optional(),summary:text,filesChanged:z.array(z.object({path:text,action:optional})).max(200).optional(),
+  status:z.enum(TASK_STATUSES.filter(status=>status!=='pending'&&status!=='running') as ['blocked','completed','failed','cancelled']).optional(),summary:text,filesChanged:z.array(z.object({path:text,action:optional})).max(200).optional(),
   commitHash:optional,branch:optional,tests:metadata,decisions:list,pending:list,inputTokens:z.number().int().nonnegative().optional(),
   outputTokens:z.number().int().nonnegative().optional(),metadata}),finishTask);
 tool('remember','Guarda memoria persistente.',z.object({...record,type:text,title:optional,content:text,

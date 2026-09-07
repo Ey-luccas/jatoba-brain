@@ -94,4 +94,8 @@ As operações MCP são auditadas com tool, escopo, resultado, duração e quant
 
 ## Migrations
 
-`src/migrate.ts` inicializa o schema base quando necessário e aplica `db/migrations` em ordem, com lock transacional, tabela `schema_migrations` e checksum. A repetição segura é responsabilidade do runner; scripts SQL individuais não devem ser reaplicados manualmente. Antes de atualizar um volume PostgreSQL existente, faça backup e valide a compatibilidade do layout.
+`src/migrate.ts` inicializa o schema base quando necessário e aplica `db/migrations` em ordem, com lock transacional, tabela `schema_migrations` e checksum. O startup usa retry limitado com backoff para falhas transitórias de conexão; o lock e a transação continuam protegendo migrations concorrentes. A repetição segura é responsabilidade do runner; scripts SQL individuais não devem ser reaplicados manualmente. Antes de atualizar um volume PostgreSQL existente, faça backup e valide a compatibilidade do layout.
+
+## Runtime e contratos
+
+O contrato oficial de tarefas mantém os valores compatíveis existentes: `pending`, `running`, `blocked`, `completed`, `failed` e `cancelled`. Agentes usados por sessões e tarefas precisam existir na tabela `agents`; os fluxos `session_start`, `start_task` e `task_assign` fazem auto-registro explícito quando necessário. A migration `004_runtime_contracts.sql` rejeita status inválidos e chaves de agente fantasma em novas gravações.

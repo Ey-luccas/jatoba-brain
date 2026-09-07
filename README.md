@@ -196,7 +196,7 @@ Use [config/local-stdio-mcp.json.example](config/local-stdio-mcp.json.example) e
 
 A implementação foi validada localmente com PostgreSQL, pgvector, Graphify, Docker e os transportes MCP reais.
 
-- 27 cenários integration/release passando;
+- 29 cenários integration/release passando;
 - build TypeScript e typecheck aprovados;
 - Compose, build Docker e runtime aprovados;
 - persistência confirmada após restart;

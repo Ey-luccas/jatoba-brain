@@ -1,9 +1,9 @@
 import { serveStdio } from '@modelcontextprotocol/server/stdio';
 import { buildMcpServer } from './mcp/server.js';
 import { db } from './db.js';
-import { migrate } from './migrate.js';
+import { migrateWithRetry } from './migrate.js';
 
-await migrate();
+await migrateWithRetry();
 console.error('Jatobá Brain MCP serving over stdio');
 const transport=serveStdio(buildMcpServer);
 let stopped=false;

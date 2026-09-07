@@ -21,6 +21,11 @@ export const config = {
   workspaceDir: process.env.WORKSPACE_DIR ?? './workspace',
   graphDir: process.env.GRAPH_DIR ?? './graphs',
   graphifyBin: process.env.GRAPHIFY_BIN ?? 'graphify',
+  databaseStartup: {
+    maxAttempts: Number(process.env.DB_STARTUP_MAX_ATTEMPTS ?? 10),
+    backoffMs: Number(process.env.DB_STARTUP_BACKOFF_MS ?? 500),
+    maxBackoffMs: Number(process.env.DB_STARTUP_MAX_BACKOFF_MS ?? 5000),
+  },
   embeddings: {
     enabled: (process.env.EMBEDDINGS_ENABLED ?? 'false').toLowerCase() === 'true',
     apiUrl: process.env.EMBEDDINGS_API_URL ?? '',

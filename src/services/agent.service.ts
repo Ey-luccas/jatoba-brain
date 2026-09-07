@@ -3,6 +3,12 @@ import { resolveScope, type Scope } from './scope.js';
 import { projectContext } from './project.service.js';
 import { relationsQuery } from './work-graph.service.js';
 
+export async function ensureAgent(key: string) {
+  if (!key?.trim()) throw new Error('Agent key is required');
+  return (await db.query(`INSERT INTO agents(key,name,role) VALUES($1,$1,'agent')
+    ON CONFLICT(key) DO UPDATE SET enabled=true RETURNING *`,[key])).rows[0];
+}
+
 export async function registerAgent(input: {key:string;name:string;role:string;provider?:string;model?:string;capabilities?:string[];metadata?:Record<string,unknown>}) {
   return (await db.query(`INSERT INTO agents(key,name,role,provider,model,capabilities,metadata)
     VALUES($1,$2,$3,$4,$5,$6,$7) ON CONFLICT(key) DO UPDATE SET name=EXCLUDED.name,role=EXCLUDED.role,
@@ -12,6 +18,7 @@ export async function registerAgent(input: {key:string;name:string;role:string;p
 
 export async function taskAssign(input: Scope & {taskId:string;agentKey:string;force_takeover?:boolean;sessionId?:string}) {
   const scope=await resolveScope(input);
+  await ensureAgent(input.agentKey);
   const client=await db.connect();
   try {
     await client.query('BEGIN');

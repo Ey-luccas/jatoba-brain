@@ -1,5 +1,9 @@
 import { db } from '../db.js';
 import { resolveProject } from './project.service.js';
+import { ensureAgent } from './agent.service.js';
+
+export const TASK_STATUSES = ['pending','running','blocked','completed','failed','cancelled'] as const;
+export type TaskStatus = typeof TASK_STATUSES[number];
 
 export async function startTask(input: {
   project?: string;
@@ -14,6 +18,7 @@ export async function startTask(input: {
   metadata?: Record<string, unknown>;
 }) {
   const project = await resolveProject(input.project, input.actor);
+  await ensureAgent(input.agentKey);
   const result = await db.query(
     `INSERT INTO tasks
       (project_id, repository_id, parent_task_id, agent_key, title, description, status, priority, started_at, metadata,session_id)
@@ -38,7 +43,7 @@ export async function finishTask(input: {
   taskId: string;
   project?: string;
   agentKey?: string;
-  status?: 'completed' | 'failed' | 'blocked' | 'cancelled';
+  status?: Exclude<TaskStatus, 'pending' | 'running'>;
   summary: string;
   filesChanged?: Array<{ path: string; action?: string }>;
   commitHash?: string;

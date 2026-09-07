@@ -1,9 +1,9 @@
 import { config } from './config.js';
 import { db } from './db.js';
 import { createApp } from './app.js';
-import { migrate } from './migrate.js';
+import { migrateWithRetry } from './migrate.js';
 
-await migrate();
+await migrateWithRetry();
 const {app,close}=createApp();
 
 const server = app.listen(config.port, config.host, () => {

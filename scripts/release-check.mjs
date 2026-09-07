@@ -10,10 +10,19 @@ const docker=tail=>execFileSync('docker',[...args,...tail],{env,encoding:'utf8',
 let url;
 const keepAlive=setInterval(()=>{},1000);
 const get=route=>fetch(url+route,{headers:{connection:'close'},signal:AbortSignal.timeout(5000)});
+function postgresHealthy() {
+  const id=docker(['ps','-q','postgres']);
+  if(!id)return false;
+  try {return execFileSync('docker',['inspect','--format={{.State.Health.Status}}',id],{encoding:'utf8'}).trim()==='healthy';}
+  catch {return false;}
+}
 async function healthy() {
   for(let i=0;i<60;i++) {
-    url='http://'+docker(['port','brain','3338']);
-    try {const response=await get('/health');if(response.ok)return await response.json();}catch{}
+    try {
+      url='http://'+docker(['port','brain','3338']);
+      const response=await get('/health');
+      if(response.ok && postgresHealthy()) return await response.json();
+    }catch{}
     await new Promise(r=>setTimeout(r,500));
   }
   throw new Error('Service did not become healthy');
@@ -32,10 +41,12 @@ try {
   assert.equal((await tool('recall',{project:beta.id,query:'authentication'})).length,0);
   for(const endpoint of ['/mcp','/api/projects','/dashboard/'])assert.equal((await get(endpoint)).status,401);
   const before=await tool('recall',{project:alpha.id,query:'authentication'});assert.equal(before[0].id,memory.id);
-  docker(['restart']);
-  console.log('Services restarted; checking persisted memory.');
-  await healthy();
-  assert.equal((await tool('recall',{project:alpha.id,query:'authentication'}))[0].id,memory.id);
+  for(let cycle=1;cycle<=5;cycle++) {
+    docker(['restart']);
+    await healthy();
+    assert.equal((await tool('recall',{project:alpha.id,query:'authentication'}))[0].id,memory.id);
+    console.log(`Restart cycle ${cycle}/5 passed; memory persisted.`);
+  }
   const exported=await tool('export_docs',{project:alpha.id});assert.ok(exported.files.includes('ARCHITECTURE.md'));
   const timings={};
   for(const name of ['health','recall','context_retrieve']) {

@@ -1,5 +1,6 @@
 import { db } from '../db.js';
 import { resolveProject } from './project.service.js';
+import { ensureAgent } from './agent.service.js';
 
 export async function startSession(input: {
   project?: string;
@@ -11,7 +12,7 @@ export async function startSession(input: {
 }) {
   const project = await resolveProject(input.project, input.actor);
   const agentKey=input.agentKey??input.actor;
-  if(agentKey) await db.query("INSERT INTO agents(key,name,role) VALUES($1,$1,'agent') ON CONFLICT DO NOTHING",[agentKey]);
+  if(agentKey) await ensureAgent(agentKey);
   const result = await db.query(
     `INSERT INTO sessions (project_id, agent_key, title, metadata,repository_id)
      VALUES ($1,$2,$3,$4,$5)
