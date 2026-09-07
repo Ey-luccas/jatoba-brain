@@ -86,6 +86,8 @@ export async function graphStatus(input: GraphInput) {
   const repo = await repository(input);
   const row = (await db.query('SELECT * FROM repository_graphs WHERE repository_id=$1',[repo.id])).rows[0];
   if (!row) return {status:'MISSING',repository_id:repo.id};
+  if (!row.graph_path) return {...row,status:'MISSING',graph_path:undefined};
+  try { await stat(row.graph_path); } catch { return {...row,status:'MISSING',graph_path:undefined}; }
   let status = row.status;
   try {
     const root = await safeRepositoryPath(repo.local_path);
