@@ -33,7 +33,7 @@ function percentile(values, p) {
 function median(values) { return percentile(values, 0.5); }
 function rank(items, score) { return [...items].sort((a, b) => score(b) - score(a) || a.id.localeCompare(b.id)); }
 function metrics(results) {
-  return [1, 3, 5].map((k) => Number((results.filter((item) => item.slice(0, k).some((id) => id === item.expected)).length / results.length).toFixed(3)));
+  return [1, 3, 5].map((k) => Number((results.filter((item) => item.slice.slice(0, k).some((id) => id === item.expected)).length / results.length).toFixed(3)));
 }
 
 async function embed(text) {

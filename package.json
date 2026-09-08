@@ -15,6 +15,8 @@
     "test:security": "node scripts/security-check.mjs",
     "test:load": "node scripts/load-check.mjs",
     "test:observability": "node scripts/observability-check.mjs",
+    "test:handoff": "node scripts/handoff-process-check.mjs",
+    "release:check": "node scripts/release-check.mjs",
     "test:soak": "node scripts/soak-check.mjs",
     "test:stdio": "node scripts/stdio-check.mjs",
     "test:stdio:multi": "node scripts/stdio-multiprocess-check.mjs",

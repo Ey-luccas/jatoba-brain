@@ -9,7 +9,7 @@ Jatoba Brain uses small in-process runtime metrics plus the existing PostgreSQL 
 - `/health` returns dependency state, process memory, Node version, uptime, and real PostgreSQL pool gauges.
 - `/metrics` returns Prometheus-compatible text and requires the normal `BRAIN_API_KEY` authentication. It is not public by default.
 
-Graphify and embeddings are optional dependencies because memory and textual retrieval have fallbacks. Database failure makes readiness `UNHEALTHY`. Graphify unavailable, or an enabled embedding provider without a configured URL, makes the service `DEGRADED`. The current health check does not probe a configured remote embedding URL; provider outage is detected by operation metrics and textual fallback.
+Graphify and embeddings are optional dependencies because memory and textual retrieval have fallbacks. Database failure makes readiness `UNHEALTHY`. Embeddings are `DISABLED` when not configured, `AVAILABLE` when the cached real-vector probe succeeds, and `UNAVAILABLE` when it fails. An unavailable embedding provider makes the service `DEGRADED` while textual fallback keeps readiness available. The probe is cached in memory using `EMBEDDING_HEALTH_TTL_MS` and bounded by `EMBEDDING_HEALTH_TIMEOUT_MS`.
 
 | Component | Failure | Brain state | Fallback |
 | --- | --- | --- | --- |

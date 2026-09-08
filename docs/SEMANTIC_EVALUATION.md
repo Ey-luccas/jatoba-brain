@@ -21,6 +21,10 @@ O provider precisa ser local ou compatível com a API OpenAI, e `DATABASE_URL` d
 
 ## Ambiente atual
 
+- Avaliação semântica real local: **BLOCKED BY DISK CAPACITY**.
+- Disco livre disponível no ambiente desta auditoria: aproximadamente **2 GB**.
+- SHA-256 do corpus avaliado: `518fd78910212a1ff09cf66f83467871ad1de903455182820c5b015b8f0cb0d8`.
+
 - Provider real disponível: nenhum detectado nesta máquina.
 - Modelo executado: nenhum.
 - Dimensão observada: nenhuma.
